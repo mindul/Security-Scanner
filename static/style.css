@@ -1,0 +1,200 @@
+:root {
+    --bg-color: #0a0a0a;
+    --sidebar-bg: #111;
+    --text-color: #0f0;
+    --accent-color: #0f0;
+    --vuln-color: #f00;
+    --safe-color: #0f0;
+    --font-main: 'Share Tech Mono', monospace;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: var(--font-main);
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+/* Landing Page */
+.landing-body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: radial-gradient(circle at center, #1a1a1a 0%, #000 100%);
+    text-align: center;
+}
+
+.landing-container h1 {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    text-shadow: 0 0 10px var(--accent-color);
+}
+
+.subtitle {
+    font-size: 1.2rem;
+    opacity: 0.8;
+    margin-bottom: 3rem;
+}
+
+.btn-start {
+    display: inline-block;
+    padding: 1rem 3rem;
+    background: transparent;
+    border: 2px solid var(--accent-color);
+    color: var(--accent-color);
+    text-decoration: none;
+    font-size: 1.5rem;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.btn-start:hover {
+    background: var(--accent-color);
+    color: #000;
+    box-shadow: 0 0 20px var(--accent-color);
+}
+
+/* Dashboard */
+.dashboard-body {
+    display: flex;
+    height: 100vh;
+}
+
+.sidebar {
+    width: 250px;
+    background: var(--sidebar-bg);
+    border-right: 1px solid #333;
+    padding: 1rem;
+}
+
+.logo {
+    font-size: 1.5rem;
+    margin-bottom: 2rem;
+    text-align: center;
+    border-bottom: 1px solid #333;
+    padding-bottom: 1rem;
+}
+
+.menu-btn {
+    display: block;
+    width: 100%;
+    padding: 1rem;
+    background: transparent;
+    border: 1px solid #333;
+    color: #888;
+    text-align: left;
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 1rem;
+    transition: all 0.2s;
+}
+
+.menu-btn.active, .menu-btn:hover {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+    background: rgba(0, 255, 0, 0.1);
+}
+
+.main-content {
+    flex: 1;
+    padding: 2rem;
+    overflow-y: auto;
+}
+
+.scanner-panel {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.input-group {
+    margin-bottom: 2rem;
+    border: 1px solid #333;
+    padding: 1.5rem;
+    background: #111;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 0.8rem;
+    background: #000;
+    border: 1px solid #444;
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    box-sizing: border-box;
+}
+
+.btn-scan {
+    width: 100%;
+    padding: 1rem;
+    background: var(--accent-color);
+    border: none;
+    color: #000;
+    font-family: inherit;
+    font-size: 1.2rem;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.btn-scan:hover {
+    opacity: 0.9;
+}
+
+.results-area h3 {
+    border-bottom: 1px solid #333;
+    padding-bottom: 0.5rem;
+}
+
+.console-output {
+    background: #000;
+    border: 1px solid #333;
+    padding: 1rem;
+    min-height: 200px;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+.status-line {
+    color: #888;
+}
+
+.blinking {
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.result-line {
+    margin-bottom: 0.5rem;
+    padding: 0.5rem;
+    border-bottom: 1px solid #222;
+}
+
+.result-line.vuln {
+    color: var(--vuln-color);
+    border-left: 3px solid var(--vuln-color);
+}
+
+.result-line.safe {
+    color: var(--safe-color);
+    border-left: 3px solid var(--safe-color);
+}
+
+.error {
+    color: #f00;
+    font-weight: bold;
+}

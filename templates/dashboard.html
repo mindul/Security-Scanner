@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scanner Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+</head>
+
+<body class="dashboard-body">
+    <div class="sidebar">
+        <div class="logo">SEC-SCAN</div>
+        <button class="menu-btn active" onclick="showScanner('weblogic')">
+            WebLogic (CVE-2017-10271)
+        </button>
+        <button class="menu-btn" onclick="showScanner('port')">
+            IP Port Scan
+        </button>
+        <!-- Future scanners can be added here -->
+    </div>
+
+    <div class="main-content">
+        <!-- WebLogic Panel -->
+        <div id="weblogic-scanner" class="scanner-panel active">
+            <h2>WebLogic Vulnerability Scanner</h2>
+            <div class="input-group">
+                <label for="weblogic-target">Target IP / CIDR:</label>
+                <input type="text" id="weblogic-target" placeholder="e.g. 192.168.1.10 or 192.168.1.0/24">
+                <button onclick="startWebLogicScan()" class="btn-scan">SCAN TARGET</button>
+            </div>
+            <div class="results-area">
+                <h3>Scan Results</h3>
+                <div id="weblogic-results" class="console-output">
+                    <p class="status-line">System Ready...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Port Scanner Panel -->
+        <div id="port-scanner" class="scanner-panel" style="display:none;">
+            <h2>IP Port Scanner</h2>
+            <div class="input-group">
+                <label for="port-target">Target IP:</label>
+                <input type="text" id="port-target" placeholder="e.g. 127.0.0.1">
+
+                <label for="port-range">Ports (Range 1-1024, List 80 443, or Single 80):</label>
+                <input type="text" id="port-range" placeholder="e.g. 1-100 or 80 443 8080" value="1-1024">
+
+                <button onclick="startPortScan()" class="btn-scan">SCAN PORTS</button>
+            </div>
+            <div class="results-area">
+                <h3>Open Ports</h3>
+                <div id="port-results" class="console-output">
+                    <p class="status-line">System Ready...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showScanner(type) {
+            // Hide all panels
+            document.querySelectorAll('.scanner-panel').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.menu-btn').forEach(el => el.classList.remove('active'));
+
+            // Show selected
+            if (type === 'weblogic') {
+                document.getElementById('weblogic-scanner').style.display = 'block';
+                document.querySelectorAll('.menu-btn')[0].classList.add('active'); // Assumption: First button is WebLogic
+            } else if (type === 'port') {
+                document.getElementById('port-scanner').style.display = 'block';
+                document.querySelectorAll('.menu-btn')[1].classList.add('active'); // Assumption: Second is Port
+            }
+        }
+
+        async function startWebLogicScan() {
+            const target = document.getElementById('weblogic-target').value;
+            const resultsDiv = document.getElementById('weblogic-results');
+
+            if (!target) {
+                alert("Please enter a target IP or CIDR range.");
+                return;
+            }
+
+            resultsDiv.innerHTML = '<p class="status-line blinking">Scanning target(s)...</p>';
+
+            try {
+                const response = await fetch('/api/scan/weblogic', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ target: target })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                resultsDiv.innerHTML = ''; // Clear loading message
+
+                if (data.error) {
+                    resultsDiv.innerHTML += `<p class="error">ERROR: ${data.error}</p>`;
+                } else if (data.results && data.results.length > 0) {
+                    data.results.forEach(res => {
+                        const statusClass = res.vulnerable ? 'vuln' : 'safe';
+                        const statusText = res.vulnerable ? '[!] VULNERABLE' : '[*] SAFE';
+                        resultsDiv.innerHTML += `
+                            <div class="result-line ${statusClass}">
+                                <span class="target">${res.target}</span>
+                                <span class="status">${statusText}</span>
+                                <span class="detail">(${res.reason})</span>
+                            </div>
+                        `;
+                    });
+                } else {
+                    resultsDiv.innerHTML = '<p>No results found.</p>';
+                }
+
+            } catch (error) {
+                resultsDiv.innerHTML = `<p class="error">System Error: ${error.message}</p>`;
+            }
+        }
+
+        async function startPortScan() {
+            const target = document.getElementById('port-target').value;
+            const ports = document.getElementById('port-range').value;
+            const resultsDiv = document.getElementById('port-results');
+
+            if (!target) {
+                alert("Please enter a target IP.");
+                return;
+            }
+
+            resultsDiv.innerHTML = '<p class="status-line blinking">Scanning ports... (This may take a moment)</p>';
+
+            try {
+                const response = await fetch('/api/scan/ports', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target: target, ports: ports })
+                });
+
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+
+                resultsDiv.innerHTML = '';
+
+                if (data.error) {
+                    resultsDiv.innerHTML += `<p class="error">ERROR: ${data.error}</p>`;
+                } else if (data.results && data.results.length > 0) {
+                    data.results.forEach(res => {
+                        resultsDiv.innerHTML += `
+                            <div class="result-line safe">
+                                <span class="target">Port ${res.port}</span>
+                                <span class="status">OPEN</span>
+                                <span class="detail">(${res.service})</span>
+                            </div>
+                        `;
+                    });
+                } else {
+                    resultsDiv.innerHTML = '<p>No open ports found in range.</p>';
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<p class="error">System Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+
+</html>
