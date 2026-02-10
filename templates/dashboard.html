@@ -18,6 +18,9 @@
         <button class="menu-btn" onclick="showScanner('port')">
             IP Port Scan
         </button>
+        <button class="menu-btn" onclick="showScanner('ssl')">
+            SSL/TLS Scanner
+        </button>
         <!-- Future scanners can be added here -->
     </div>
 
@@ -42,8 +45,8 @@
         <div id="port-scanner" class="scanner-panel" style="display:none;">
             <h2>IP Port Scanner</h2>
             <div class="input-group">
-                <label for="port-target">Target IP:</label>
-                <input type="text" id="port-target" placeholder="e.g. 127.0.0.1">
+                <label for="port-target">Target IP / CIDR:</label>
+                <input type="text" id="port-target" placeholder="e.g. 127.0.0.1 or 192.168.1.0/24">
 
                 <label for="port-range">Ports (Range 1-1024, List 80 443, or Single 80):</label>
                 <input type="text" id="port-range" placeholder="e.g. 1-100 or 80 443 8080" value="1-1024">
@@ -53,6 +56,26 @@
             <div class="results-area">
                 <h3>Open Ports</h3>
                 <div id="port-results" class="console-output">
+                    <p class="status-line">System Ready...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SSL Scanner Panel -->
+        <div id="ssl-scanner" class="scanner-panel" style="display:none;">
+            <h2>SSL/TLS Scanner</h2>
+            <div class="input-group">
+                <label for="ssl-target">Target Host (Domain or IP):</label>
+                <input type="text" id="ssl-target" placeholder="e.g. example.com">
+
+                <label for="ssl-port">Port:</label>
+                <input type="number" id="ssl-port" value="443">
+
+                <button onclick="startSSLScan()" class="btn-scan">SCAN SSL/TLS</button>
+            </div>
+            <div class="results-area">
+                <h3>Analysis Results</h3>
+                <div id="ssl-results" class="console-output">
                     <p class="status-line">System Ready...</p>
                 </div>
             </div>
@@ -72,6 +95,9 @@
             } else if (type === 'port') {
                 document.getElementById('port-scanner').style.display = 'block';
                 document.querySelectorAll('.menu-btn')[1].classList.add('active'); // Assumption: Second is Port
+            } else if (type === 'ssl') {
+                document.getElementById('ssl-scanner').style.display = 'block';
+                document.querySelectorAll('.menu-btn')[2].classList.add('active'); // Corrected index for SSL button
             }
         }
 
@@ -132,7 +158,7 @@
             const resultsDiv = document.getElementById('port-results');
 
             if (!target) {
-                alert("Please enter a target IP.");
+                alert("Please enter a target IP or CIDR.");
                 return;
             }
 
@@ -156,7 +182,7 @@
                     data.results.forEach(res => {
                         resultsDiv.innerHTML += `
                             <div class="result-line safe">
-                                <span class="target">Port ${res.port}</span>
+                                <span class="target">${res.ip}:${res.port}</span>
                                 <span class="status">OPEN</span>
                                 <span class="detail">(${res.service})</span>
                             </div>
@@ -164,6 +190,90 @@
                     });
                 } else {
                     resultsDiv.innerHTML = '<p>No open ports found in range.</p>';
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<p class="error">System Error: ${error.message}</p>`;
+            }
+        }
+
+        async function startSSLScan() {
+            const target = document.getElementById('ssl-target').value;
+            const port = document.getElementById('ssl-port').value;
+            const resultsDiv = document.getElementById('ssl-results');
+
+            if (!target) {
+                alert("Please enter a target host.");
+                return;
+            }
+
+            resultsDiv.innerHTML = '<p class="status-line blinking">Analyzing SSL/TLS Configuration...</p>';
+
+            try {
+                const response = await fetch('/api/scan/ssl', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target: target, port: port })
+                });
+
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                const res = data.results;
+
+                resultsDiv.innerHTML = '';
+
+                if (data.error) {
+                    resultsDiv.innerHTML += `<p class="error">ERROR: ${data.error}</p>`;
+                } else if (res) {
+                    // Certificate Info
+                    if (res.certificate) {
+                        const cert = res.certificate;
+                        const subject = cert.subject ? Object.values(cert.subject).join(' ') : 'N/A';
+                        resultsDiv.innerHTML += `
+                            <div class="result-line safe">
+                                <span class="status">Certificate</span>
+                                <span class="detail">Matches ${subject}</span>
+                            </div>
+                            <div class="result-line">
+                                <span class="detail">Expires: ${cert.valid_until} (${cert.days_remaining} days left)</span>
+                            </div>
+                        `;
+                    }
+
+                    // Vulnerabilities
+                    if (res.vulnerabilities && res.vulnerabilities.length > 0) {
+                        res.vulnerabilities.forEach(vuln => {
+                            resultsDiv.innerHTML += `
+                                <div class="result-line vuln">
+                                    <span class="status">[VULNERABILITY]</span>
+                                    <span class="detail">${vuln}</span>
+                                </div>
+                            `;
+                        });
+                    } else {
+                        resultsDiv.innerHTML += `
+                            <div class="result-line safe">
+                                <span class="status">[SECURE]</span>
+                                <span class="detail">No obvious vulnerabilities found.</span>
+                            </div>
+                        `;
+                    }
+
+                    // Protocols
+                    if (res.protocols) {
+                        let protocols = Object.entries(res.protocols)
+                            .filter(([_, supported]) => supported)
+                            .map(([proto, _]) => proto)
+                            .join(', ');
+                        resultsDiv.innerHTML += `
+                            <div class="result-line">
+                                <span class="status">Protocols</span>
+                                <span class="detail">${protocols}</span>
+                            </div>
+                        `;
+                    }
+
+                } else {
+                    resultsDiv.innerHTML = '<p>No results returned.</p>';
                 }
             } catch (error) {
                 resultsDiv.innerHTML = `<p class="error">System Error: ${error.message}</p>`;

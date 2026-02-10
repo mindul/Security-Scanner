@@ -70,33 +70,59 @@ def scan_weblogic():
 @app.route('/api/scan/ports', methods=['POST'])
 def scan_ports():
     data = request.json
-    target_ip = data.get('target')
+    target_input = data.get('target')
     port_input = data.get('ports', '1-1024') # Default to common range
 
-    if not target_ip:
+    if not target_input:
         return jsonify({'error': 'No target IP provided'}), 400
 
     from port_scanner_core import PortScanner
-    scanner = PortScanner(target_ip)
     
-    open_ports = []
+    all_results = []
     try:
+        # Parse port arguments once to optimize and error check early
+        scan_mode = 'range'
+        scan_args = []
+        
         if '-' in str(port_input):
             start, end = map(int, str(port_input).split('-'))
-            open_ports = scanner.scan_range(start, end)
+            scan_mode = 'range'
+            scan_args = [start, end]
         elif ',' in str(port_input) or ' ' in str(port_input):
-            # Split by comma or space
             ports = [int(p) for p in str(port_input).replace(',', ' ').split()]
-            open_ports = scanner.scan_specific_ports(ports)
+            scan_mode = 'list'
+            scan_args = [ports]
         else:
-             # Single port
-             open_ports = scanner.scan_specific_ports([int(port_input)])
+             scan_mode = 'list'
+             scan_args = [[int(port_input)]]
+
+        # Parse targets (Single IP or CIDR)
+        targets = []
+        if '/' in target_input:
+            network = ipaddress.ip_network(target_input, strict=False)
+            if network.num_addresses > 256:
+                 return jsonify({'error': 'Scan range too large. Max 256 IPs allowed.'}), 400
+            targets = [str(ip) for ip in network.hosts()]
+        else:
+            targets = [target_input]
+
+        # Scan each target
+        for target in targets:
+            scanner = PortScanner(target)
+            open_ports = []
+            
+            if scan_mode == 'range':
+                open_ports = scanner.scan_range(*scan_args)
+            else:
+                open_ports = scanner.scan_specific_ports(*scan_args)
+            
+            for p, s in open_ports:
+                all_results.append({'ip': target, 'port': p, 'service': s})
              
-        results = [{'port': p, 'service': s} for p, s in open_ports]
-        return jsonify({'results': results})
+        return jsonify({'results': all_results})
 
     except ValueError:
-        return jsonify({'error': 'Invalid port format'}), 400
+        return jsonify({'error': 'Invalid IP address or Port format'}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
