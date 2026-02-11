@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, jsonify
 from scanner_core import check_vulnerability
 import ipaddress
+from malicious_link_scanner import check_malicious, expand_url, get_snapshot_url
 
 app = Flask(__name__)
 
@@ -123,6 +124,37 @@ def scan_ports():
 
     except ValueError:
         return jsonify({'error': 'Invalid IP address or Port format'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/scan/malicious', methods=['POST'])
+def scan_malicious():
+    data = request.json
+    target_url = data.get('url')
+
+    if not target_url:
+        return jsonify({'error': 'No URL provided'}), 400
+    
+    try:
+        # 1. Expand URL (handle shorteners)
+        final_url = expand_url(target_url)
+        
+        # 2. Check for malicious content
+        is_malicious, reason, confidence = check_malicious(final_url)
+        
+        # 3. Get Snapshot URL
+        snapshot_url = get_snapshot_url(final_url)
+        
+        return jsonify({
+            'original_url': target_url,
+            'final_url': final_url,
+            'is_malicious': is_malicious,
+            'reason': reason,
+            'confidence': confidence,
+            'snapshot_url': snapshot_url
+        })
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

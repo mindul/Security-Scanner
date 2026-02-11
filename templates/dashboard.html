@@ -21,6 +21,9 @@
         <button class="menu-btn" onclick="showScanner('ssl')">
             SSL/TLS Scanner
         </button>
+        <button class="menu-btn" onclick="showScanner('malicious')">
+            Malicious-Link-Scanner
+        </button>
         <!-- Future scanners can be added here -->
     </div>
 
@@ -80,6 +83,23 @@
                 </div>
             </div>
         </div>
+
+        <!-- Malicious Link Scanner Panel -->
+        <div id="malicious-scanner" class="scanner-panel" style="display:none;">
+            <h2>Malicious Link Scanner</h2>
+            <div class="input-group">
+                <label for="malicious-target">Suspicious URL:</label>
+                <input type="text" id="malicious-target"
+                    placeholder="e.g. http://bit.ly/sus-link or http://suspicious-site.com">
+                <button onclick="startMaliciousScan()" class="btn-scan">SCAN URL</button>
+            </div>
+            <div class="results-area">
+                <h3>Scan Results</h3>
+                <div id="malicious-results" class="console-output">
+                    <p class="status-line">System Ready...</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -98,6 +118,9 @@
             } else if (type === 'ssl') {
                 document.getElementById('ssl-scanner').style.display = 'block';
                 document.querySelectorAll('.menu-btn')[2].classList.add('active'); // Corrected index for SSL button
+            } else if (type === 'malicious') {
+                document.getElementById('malicious-scanner').style.display = 'block';
+                document.querySelectorAll('.menu-btn')[3].classList.add('active');
             }
         }
 
@@ -274,6 +297,66 @@
 
                 } else {
                     resultsDiv.innerHTML = '<p>No results returned.</p>';
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<p class="error">System Error: ${error.message}</p>`;
+            }
+        }
+
+        async function startMaliciousScan() {
+            const target = document.getElementById('malicious-target').value;
+            const resultsDiv = document.getElementById('malicious-results');
+
+            if (!target) {
+                alert("Please enter a URL.");
+                return;
+            }
+
+            resultsDiv.innerHTML = '<p class="status-line blinking">Analyzing URL...</p>';
+
+            try {
+                const response = await fetch('/api/scan/malicious', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: target })
+                });
+
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+
+                resultsDiv.innerHTML = '';
+
+                if (data.error) {
+                    resultsDiv.innerHTML += `<p class="error">ERROR: ${data.error}</p>`;
+                } else {
+                    const statusClass = data.is_malicious ? 'vuln' : 'safe';
+                    const statusText = data.is_malicious ? '[!] DANGEROUS' : '[*] SAFE';
+
+                    // Display Snapshot
+                    if (data.snapshot_url) {
+                        resultsDiv.innerHTML += `
+                            <div class="snapshot-container" style="margin-bottom: 20px;">
+                                <p class="detail">Site Snapshot:</p>
+                                <img src="${data.snapshot_url}" alt="Site Snapshot" style="width:100%; max-width:600px; border: 1px solid #00ff00; box-shadow: 0 0 10px #00ff00;">
+                            </div>
+                        `;
+                    }
+
+                    resultsDiv.innerHTML += `
+                        <div class="result-line ${statusClass}">
+                            <span class="status">${statusText}</span>
+                            <span class="detail">Confidence: ${data.confidence}</span>
+                        </div>
+                        <div class="result-line">
+                            <span class="detail">Original URL: ${data.original_url}</span>
+                        </div>
+                        <div class="result-line">
+                            <span class="detail">Final Destination: ${data.final_url}</span>
+                        </div>
+                        <div class="result-line">
+                            <span class="detail">Analysis: ${data.reason}</span>
+                        </div>
+                    `;
                 }
             } catch (error) {
                 resultsDiv.innerHTML = `<p class="error">System Error: ${error.message}</p>`;
