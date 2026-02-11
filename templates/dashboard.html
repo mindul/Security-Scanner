@@ -22,7 +22,10 @@
             SSL/TLS Scanner
         </button>
         <button class="menu-btn" onclick="showScanner('malicious')">
-            Malicious-Link-Scanner
+            Malicious Link Scanner
+        </button>
+        <button class="menu-btn" onclick="showScanner('arp')">
+            ARP Scanner (root 권한 필요)
         </button>
         <!-- Future scanners can be added here -->
     </div>
@@ -100,6 +103,22 @@
                 </div>
             </div>
         </div>
+
+        <!-- ARP Scanner Panel -->
+        <div id="arp-scanner" class="scanner-panel" style="display:none;">
+            <h2>ARP Network Scanner</h2>
+            <div class="input-group">
+                <label for="arp-target">Target IP Range (CIDR):</label>
+                <input type="text" id="arp-target" placeholder="e.g. 192.168.0.1/24">
+                <button onclick="startARPScan()" class="btn-scan">SCAN PROBE</button>
+            </div>
+            <div class="results-area">
+                <h3>Discovered Devices</h3>
+                <div id="arp-results" class="console-output">
+                    <p class="status-line">System Ready...</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -121,6 +140,9 @@
             } else if (type === 'malicious') {
                 document.getElementById('malicious-scanner').style.display = 'block';
                 document.querySelectorAll('.menu-btn')[3].classList.add('active');
+            } else if (type === 'arp') {
+                document.getElementById('arp-scanner').style.display = 'block';
+                document.querySelectorAll('.menu-btn')[4].classList.add('active');
             }
         }
 
@@ -357,6 +379,62 @@
                             <span class="detail">Analysis: ${data.reason}</span>
                         </div>
                     `;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<p class="error">System Error: ${error.message}</p>`;
+            }
+        }
+
+        async function startARPScan() {
+            const target = document.getElementById('arp-target').value;
+            const resultsDiv = document.getElementById('arp-results');
+
+            if (!target) {
+                alert("Please enter a target IP range (CIDR).");
+                return;
+            }
+
+            resultsDiv.innerHTML = '<p class="status-line blinking">Scanning Network (ARP Probing)...</p>';
+
+            try {
+                const response = await fetch('/api/scan/arp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target: target })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    if (errorData.error) {
+                        throw new Error(errorData.error);
+                    }
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+
+                resultsDiv.innerHTML = '';
+
+                if (data.error) {
+                    resultsDiv.innerHTML += `<p class="error">ERROR: ${data.error}</p>`;
+                } else if (data.results && data.results.length > 0) {
+                    // Header
+                    resultsDiv.innerHTML += `
+                        <div class="result-line" style="font-weight:bold; border-bottom: 1px solid #333; margin-bottom:10px;">
+                            <span class="target" style="width: 200px; display:inline-block;">IP Address</span>
+                            <span class="detail">MAC Address</span>
+                        </div>
+                    `;
+
+                    data.results.forEach(res => {
+                        resultsDiv.innerHTML += `
+                            <div class="result-line safe">
+                                <span class="target" style="width: 200px; display:inline-block;">${res.ip}</span>
+                                <span class="detail">${res.mac}</span>
+                            </div>
+                        `;
+                    });
+                } else {
+                    resultsDiv.innerHTML = '<p>No devices found.</p>';
                 }
             } catch (error) {
                 resultsDiv.innerHTML = `<p class="error">System Error: ${error.message}</p>`;

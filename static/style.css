@@ -65,7 +65,7 @@ body {
 }
 
 .sidebar {
-    width: 250px;
+    width: 300px;
     background: var(--sidebar-bg);
     border-right: 1px solid #333;
     padding: 1rem;

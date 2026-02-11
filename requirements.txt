@@ -2,3 +2,4 @@ flask
 requests
 pyOpenSSL
 certifi
+scapy

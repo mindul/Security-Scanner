@@ -158,6 +158,28 @@ def scan_malicious():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/scan/arp', methods=['POST'])
+def scan_arp():
+    data = request.json
+    target_range = data.get('target')
+
+    if not target_range:
+        return jsonify({'error': 'No target IP range provided'}), 400
+
+    from arp_scanner_core import scan_network
+    
+    try:
+        # Perform ARP Scan
+        results = scan_network(target_range)
+        
+        if isinstance(results, dict) and 'error' in results:
+             return jsonify({'error': results['error']}), 500
+
+        return jsonify({'results': results})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     # host='0.0.0.0' allows access from other devices on the network
-    app.run(host='0.0.0.0', debug=True, port=5656)
+    app.run(host='0.0.0.0', debug=True, port=5657)
