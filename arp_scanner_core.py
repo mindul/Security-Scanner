@@ -1,31 +1,43 @@
+import ipaddress
 from scapy.all import ARP, Ether, srp
 
 def scan_network(ip_range):
     """
     Scans the network for active devices using ARP requests.
-    
-    Args:
-        ip_range (str): The IP range to scan (e.g., "192.168.0.1/24").
-        
-    Returns:
-        list: A list of dictionaries containing 'ip' and 'mac' of discovered devices.
+    Returns all IPs in the range, marking inactive ones as N/A.
     """
-    # Create ARP request packet
-    arp = ARP(pdst=ip_range)
-    ether = Ether(dst="ff:ff:ff:ff:ff:ff")
-    packet = ether/arp
-
     try:
+        # Create ARP request packet
+        arp = ARP(pdst=ip_range)
+        ether = Ether(dst="ff:ff:ff:ff:ff:ff")
+        packet = ether/arp
+
         # Send packet and receive response
-        # timeout=2 is usually sufficient for local networks
         result = srp(packet, timeout=2, verbose=False)[0]
 
-        devices = []
+        # Map found devices
+        found_devices = {}
         for sent, received in result:
-            devices.append({'ip': received.psrc, 'mac': received.hwsrc})
+            found_devices[received.psrc] = received.hwsrc
+
+        # Generate list of all IPs in range
+        # strict=False allows passing host bits (e.g. 192.168.1.5/24)
+        network = ipaddress.ip_network(ip_range, strict=False)
+        
+        devices = []
+        for ip in network.hosts():
+            ip_str = str(ip)
+            # Ensure mac is string
+            mac = str(found_devices.get(ip_str, "N/A"))
+            devices.append({'ip': ip_str, 'mac': mac})
 
         return devices
+
     except PermissionError:
         return {'error': 'Permission denied. Run with sudo.'}
+    except ValueError as e:
+         return {'error': f'Invalid IP range: {str(e)}'}
     except Exception as e:
-        return {'error': str(e)}
+        import traceback
+        traceback.print_exc()
+        return {'error': f'Scan error: {str(e)}'}

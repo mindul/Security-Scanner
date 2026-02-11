@@ -403,20 +403,27 @@
                     body: JSON.stringify({ target: target })
                 });
 
+                const text = await response.text();
+                let data;
+
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    // JSON parse failed, likely HTML error page
+                    console.error("Failed to parse JSON:", text);
+                    throw new Error(`Server returned invalid JSON. Possible error: ${text.substring(0, 100)}...`);
+                }
+
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    if (errorData.error) {
-                        throw new Error(errorData.error);
+                    if (data.error) {
+                        throw new Error(data.error);
                     }
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                const data = await response.json();
 
                 resultsDiv.innerHTML = '';
 
-                if (data.error) {
-                    resultsDiv.innerHTML += `<p class="error">ERROR: ${data.error}</p>`;
-                } else if (data.results && data.results.length > 0) {
+                if (data.results && data.results.length > 0) {
                     // Header
                     resultsDiv.innerHTML += `
                         <div class="result-line" style="font-weight:bold; border-bottom: 1px solid #333; margin-bottom:10px;">
@@ -426,15 +433,22 @@
                     `;
 
                     data.results.forEach(res => {
+                        const isFound = res.mac !== 'N/A';
+                        const statusClass = isFound ? 'safe' : 'inactive'; // Use safe for found, inactive for N/A
+                        const macDisplay = isFound ? res.mac : '<span style="color:#555;">N/A</span>';
+                        const rowStyle = isFound ? '' : 'opacity: 0.6;';
+
                         resultsDiv.innerHTML += `
-                            <div class="result-line safe">
+                            <div class="result-line ${statusClass}" style="${rowStyle}">
                                 <span class="target" style="width: 200px; display:inline-block;">${res.ip}</span>
-                                <span class="detail">${res.mac}</span>
+                                <span class="detail">${macDisplay}</span>
                             </div>
                         `;
                     });
+                } else if (data.error) {
+                    resultsDiv.innerHTML += `<p class="error">ERROR: ${data.error}</p>`;
                 } else {
-                    resultsDiv.innerHTML = '<p>No devices found.</p>';
+                    resultsDiv.innerHTML = '<p>No IPs parsed from range.</p>';
                 }
             } catch (error) {
                 resultsDiv.innerHTML = `<p class="error">System Error: ${error.message}</p>`;
