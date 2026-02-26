@@ -1,7 +1,12 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response, stream_with_context
 from scanner_core import check_vulnerability
 import ipaddress
+import json
+import time
 from malicious_link_scanner import check_malicious, expand_url, get_snapshot_url
+from react2shell_scanner_core import React2ShellScanner
+
+
 
 app = Flask(__name__)
 
@@ -16,88 +21,67 @@ def dashboard():
 @app.route('/api/scan/weblogic', methods=['POST'])
 def scan_weblogic():
     data = request.json
-    target_input = data.get('target')
+    target_input = data.get('target', '').strip()
 
     if not target_input:
-        return jsonify({'error': 'No target provided'}), 400
+        return jsonify({'error': 'No target IP provided'}), 400
 
-    results = []
-
-    # Handle IP Range or Single IP
+    targets = []
     try:
-        # Check if it's a CIDR block
         if '/' in target_input:
             network = ipaddress.ip_network(target_input, strict=False)
-            # Limit strictly to avoid abuse/performance issues in this demo
             if network.num_addresses > 256:
                  return jsonify({'error': 'Scan range too large. Max 256 IPs allowed.'}), 400
-            
-            for ip in network.hosts():
-                 # Assuming default port 7001 for WebLogic if not specified, 
-                 # but usually scanners scan ports. For this demo, we assume http://{ip}:7001
-                 # Realistically, user might input full URL or IP.
-                 # Let's support http/https prefix or default to http://{ip}:7001
-                 url = f"http://{ip}:7001"
-                 is_vuln, reason = check_vulnerability(url)
-                 results.append({
-                     'target': str(ip),
-                     'url': url,
-                     'vulnerable': is_vuln,
-                     'reason': reason
-                 })
+            targets = [str(ip) for ip in network.hosts()]
         else:
-            # Single Target
-            # If input doesn't start with http, assume http://{input}:7001
-            if not target_input.startswith('http'):
-                 url = f"http://{target_input}:7001"
-            else:
-                 url = target_input
-            
-            is_vuln, reason = check_vulnerability(url)
-            results.append({
-                'target': target_input,
-                'url': url,
-                'vulnerable': is_vuln,
-                'reason': reason
-            })
+            targets = [target_input]
+
+        def generate():
+            import concurrent.futures
+            total = len(targets)
+            count = 0
+            with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+                future_to_ip = {executor.submit(check_vulnerability, f"http://{ip}:7001"): ip for ip in targets}
+                for future in concurrent.futures.as_completed(future_to_ip):
+                    count += 1
+                    ip = future_to_ip[future]
+                    is_vuln, reason = future.result()
+                    progress = int((count / total) * 100)
+                    yield f"data: {json.dumps({'result': {'target': str(ip), 'vulnerable': is_vuln, 'reason': reason}, 'progress': progress, 'current': count, 'total': total})}\n\n"
+
+        return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
     except ValueError:
         return jsonify({'error': 'Invalid IP address or CIDR format'}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-    return jsonify({'results': results})
 
 @app.route('/api/scan/ports', methods=['POST'])
 def scan_ports():
     data = request.json
-    target_input = data.get('target')
-    port_input = data.get('ports', '1-1024') # Default to common range
+    target_input = data.get('target', '').strip()
+    port_input_raw = str(data.get('ports', '1-1024')).strip()
+    
+    # Default to 1-1024 if empty
+    if not port_input_raw:
+        port_input_raw = '1-1024'
+    port_input = port_input_raw
 
     if not target_input:
         return jsonify({'error': 'No target IP provided'}), 400
 
     from port_scanner_core import PortScanner
     
-    all_results = []
     try:
-        # Parse port arguments once to optimize and error check early
-        scan_mode = 'range'
-        scan_args = []
-        
         if '-' in str(port_input):
             start, end = map(int, str(port_input).split('-'))
-            scan_mode = 'range'
-            scan_args = [start, end]
+            ports = list(range(start, end + 1))
         elif ',' in str(port_input) or ' ' in str(port_input):
             ports = [int(p) for p in str(port_input).replace(',', ' ').split()]
-            scan_mode = 'list'
-            scan_args = [ports]
         else:
-             scan_mode = 'list'
-             scan_args = [[int(port_input)]]
+            ports = [int(port_input)]
 
-        # Parse targets (Single IP or CIDR)
         targets = []
         if '/' in target_input:
             network = ipaddress.ip_network(target_input, strict=False)
@@ -107,23 +91,63 @@ def scan_ports():
         else:
             targets = [target_input]
 
-        # Scan each target
-        for target in targets:
-            scanner = PortScanner(target)
-            open_ports = []
+        def generate():
+            total_tasks = len(targets) * len(ports)
+            completed_tasks = 0
             
-            if scan_mode == 'range':
-                open_ports = scanner.scan_range(*scan_args)
-            else:
-                open_ports = scanner.scan_specific_ports(*scan_args)
-            
-            for p, s in open_ports:
-                all_results.append({'ip': target, 'port': p, 'service': s})
-             
-        return jsonify({'results': all_results})
+            for target in targets:
+                scanner = PortScanner(target)
+                any_open = False
+                any_alive = False
+                for port, is_open, service, is_alive in scanner.scan_list_generator(ports):
+                    completed_tasks += 1
+                    progress = int((completed_tasks / total_tasks) * 100)
+                    if is_alive:
+                        any_alive = True
+                    if is_open:
+                        any_open = True
+                        yield f"data: {json.dumps({'result': {'ip': target, 'port': port, 'service': service}, 'progress': progress})}\n\n"
+                    else:
+                        # Still yield progress even if port is closed
+                        yield f"data: {json.dumps({'progress': progress})}\n\n"
+                
+                # If host is alive but no ports found, send a specific message
+                if any_alive and not any_open:
+                    yield f"data: {json.dumps({'info': f'No open ports found on {target} in range {port_input_raw}, but host is responsive.', 'progress': progress})}\n\n"
 
-    except ValueError:
-        return jsonify({'error': 'Invalid IP address or Port format'}), 400
+                # Signal that this target IP is done. 
+                # Use has_open_ports flag (which frontend uses) to represent "is host alive/responsive"
+                yield f"data: {json.dumps({'ip_done': target, 'has_open_ports': any_alive, 'progress': progress})}\n\n"
+        
+        return Response(stream_with_context(generate()), mimetype='text/event-stream')
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/scan/ssl', methods=['POST'])
+def scan_ssl():
+    data = request.json
+    target = data.get('target', '').strip()
+    port = int(str(data.get('port', 443)).strip())
+
+    if not target:
+        return jsonify({'error': 'No target host provided'}), 400
+
+    from ssl_tls_scanner_core import SSLTLSScanner
+    
+    try:
+        scanner = SSLTLSScanner(target, int(port))
+        
+        def generate():
+            steps = 5
+            completed = 0
+            for step_name, result in scanner.run_scan_generator():
+                completed += 1
+                progress = int((completed / steps) * 100)
+                yield f"data: {json.dumps({'step': step_name, 'result': result, 'progress': progress})}\n\n"
+
+        return Response(stream_with_context(generate()), mimetype='text/event-stream')
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -131,14 +155,14 @@ def scan_ports():
 @app.route('/api/scan/malicious', methods=['POST'])
 def scan_malicious():
     data = request.json
-    target_url = data.get('url')
+    url = data.get('url', '').strip()
 
-    if not target_url:
-        return jsonify({'error': 'No URL provided'}), 400
+    if not url:
+        return jsonify({'error': 'URL is required'}), 400
     
     try:
         # 1. Expand URL (handle shorteners)
-        final_url = expand_url(target_url)
+        final_url = expand_url(url)
         
         # 2. Check for malicious content
         is_malicious, reason, confidence = check_malicious(final_url)
@@ -147,7 +171,7 @@ def scan_malicious():
         snapshot_url = get_snapshot_url(final_url)
         
         return jsonify({
-            'original_url': target_url,
+            'original_url': url,
             'final_url': final_url,
             'is_malicious': is_malicious,
             'reason': reason,
@@ -185,6 +209,42 @@ def scan_arp():
         print("Exception in scan_arp:")
         traceback.print_exc()
         return jsonify({'error': f"Internal Server Error: {str(e)}"}), 500
+
+
+@app.route('/api/scan/react2shell', methods=['POST'])
+def scan_react2shell():
+    data = request.json
+    target_input = data.get('target', '').strip()
+
+    if not target_input:
+        return jsonify({'error': 'No target IP provided'}), 400
+
+    targets = []
+    try:
+        if '/' in target_input:
+            network = ipaddress.ip_network(target_input, strict=False)
+            if network.num_addresses > 256:
+                 return jsonify({'error': 'Scan range too large. Max 256 IPs allowed.'}), 400
+            targets = [str(ip) for ip in network.hosts()]
+        else:
+            targets = [target_input]
+
+        scanner = React2ShellScanner(targets)
+        
+        def generate():
+            total = len(targets)
+            count = 0
+            for result in scanner.run_scan():
+                count += 1
+                progress = int((count / total) * 100)
+                yield f"data: {json.dumps({'result': result, 'progress': progress, 'current': count, 'total': total})}\n\n"
+        
+        return Response(stream_with_context(generate()), mimetype='text/event-stream')
+
+    except ValueError:
+        return jsonify({'error': 'Invalid IP address or CIDR format'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     # host='0.0.0.0' allows access from other devices on the network

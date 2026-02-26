@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 </head>
+
 <body class="landing-body">
     <div class="landing-container">
         <h1 class="glitch" data-text="SECURITY SCANNER">SECURITY SCANNER</h1>
@@ -14,5 +16,30 @@
         <div class="cyber-circle"></div>
         <a href="/dashboard" class="btn-start">INITIALIZE SYSTEM</a>
     </div>
+
+    <!-- Theme Toggle Button -->
+    <div style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);">
+        <button id="theme-toggle" class="btn-scan" style="width: auto; padding: 10px 20px; font-size: 0.9rem;">TOGGLE
+            LIGHT THEME</button>
+    </div>
+
+    <script>
+        const themeToggle = document.getElementById('theme-toggle');
+        const body = document.body;
+
+        // Check for saved theme
+        if (localStorage.getItem('theme') === 'light') {
+            body.classList.add('light-theme');
+            themeToggle.innerText = 'TOGGLE DARK THEME';
+        }
+
+        themeToggle.addEventListener('click', () => {
+            body.classList.toggle('light-theme');
+            const isLight = body.classList.contains('light-theme');
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            themeToggle.innerText = isLight ? 'TOGGLE DARK THEME' : 'TOGGLE LIGHT THEME';
+        });
+    </script>
 </body>
+
 </html>

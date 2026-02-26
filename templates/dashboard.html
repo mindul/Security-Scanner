@@ -10,6 +10,12 @@
 </head>
 
 <body class="dashboard-body">
+    <script>
+        // Apply theme immediately to prevent flicker
+        if (localStorage.getItem('theme') === 'light') {
+            document.body.classList.add('light-theme');
+        }
+    </script>
     <div class="sidebar">
         <div class="logo">SEC-SCAN</div>
         <button class="menu-btn active" onclick="showScanner('weblogic')">
@@ -27,6 +33,10 @@
         <button class="menu-btn" onclick="showScanner('arp')">
             ARP Scanner (root 권한 필요)
         </button>
+        <button class="menu-btn" onclick="showScanner('react2shell')">
+            React2Shell Scanner
+        </button>
+
         <!-- Future scanners can be added here -->
     </div>
 
@@ -36,15 +46,22 @@
             <h2>WebLogic Vulnerability Scanner</h2>
             <div class="input-group">
                 <label for="weblogic-target">Target IP / CIDR:</label>
-                <input type="text" id="weblogic-target" placeholder="e.g. 192.168.1.10 or 192.168.1.0/24">
-                <button onclick="startWebLogicScan()" class="btn-scan">SCAN TARGET</button>
+                <input type="text" id="weblogic-target" placeholder="e.g. 192.168.1.10 or 192.168.1.0/24"
+                    onkeyup="if(event.key === 'Enter') startWebLogicScan()">
+                <button id="weblogic-scan-btn" onclick="startWebLogicScan()" class="btn-scan">SCAN TARGET</button>
+                <button id="weblogic-stop-btn" onclick="stopScan('weblogic')" class="btn-stop">STOP SCAN</button>
             </div>
             <div class="results-area">
                 <h3>Scan Results</h3>
+                <div id="weblogic-progress-container" class="progress-container">
+                    <div id="weblogic-progress-bar" class="progress-bar"></div>
+                    <div id="weblogic-progress-text" class="progress-text">0%</div>
+                </div>
                 <div id="weblogic-results" class="console-output">
                     <p class="status-line">System Ready...</p>
                 </div>
             </div>
+
         </div>
 
         <!-- Port Scanner Panel -->
@@ -52,19 +69,27 @@
             <h2>IP Port Scanner</h2>
             <div class="input-group">
                 <label for="port-target">Target IP / CIDR:</label>
-                <input type="text" id="port-target" placeholder="e.g. 127.0.0.1 or 192.168.1.0/24">
+                <input type="text" id="port-target" placeholder="e.g. 127.0.0.1 or 192.168.1.0/24"
+                    onkeyup="if(event.key === 'Enter') startPortScan()">
 
                 <label for="port-range">Ports (Range 1-1024, List 80 443, or Single 80):</label>
-                <input type="text" id="port-range" placeholder="e.g. 1-100 or 80 443 8080" value="1-1024">
+                <input type="text" id="port-range" placeholder="e.g. 1-100 or 80 443 8080" value="1-1024"
+                    onkeyup="if(event.key === 'Enter') startPortScan()">
 
-                <button onclick="startPortScan()" class="btn-scan">SCAN PORTS</button>
+                <button id="port-scan-btn" onclick="startPortScan()" class="btn-scan">SCAN PORTS</button>
+                <button id="port-stop-btn" onclick="stopScan('port')" class="btn-stop">STOP SCAN</button>
             </div>
             <div class="results-area">
                 <h3>Open Ports</h3>
+                <div id="port-progress-container" class="progress-container">
+                    <div id="port-progress-bar" class="progress-bar"></div>
+                    <div id="port-progress-text" class="progress-text">0%</div>
+                </div>
                 <div id="port-results" class="console-output">
                     <p class="status-line">System Ready...</p>
                 </div>
             </div>
+
         </div>
 
         <!-- SSL Scanner Panel -->
@@ -72,29 +97,37 @@
             <h2>SSL/TLS Scanner</h2>
             <div class="input-group">
                 <label for="ssl-target">Target Host (Domain or IP):</label>
-                <input type="text" id="ssl-target" placeholder="e.g. example.com">
+                <input type="text" id="ssl-target" placeholder="e.g. example.com"
+                    onkeyup="if(event.key === 'Enter') startSSLScan()">
 
                 <label for="ssl-port">Port:</label>
-                <input type="number" id="ssl-port" value="443">
+                <input type="number" id="ssl-port" value="443" onkeyup="if(event.key === 'Enter') startSSLScan()">
 
-                <button onclick="startSSLScan()" class="btn-scan">SCAN SSL/TLS</button>
+                <button id="ssl-scan-btn" onclick="startSSLScan()" class="btn-scan">SCAN SSL/TLS</button>
+                <button id="ssl-stop-btn" onclick="stopScan('ssl')" class="btn-stop">STOP SCAN</button>
             </div>
             <div class="results-area">
                 <h3>Analysis Results</h3>
+                <div id="ssl-progress-container" class="progress-container">
+                    <div id="ssl-progress-bar" class="progress-bar"></div>
+                    <div id="ssl-progress-text" class="progress-text">0%</div>
+                </div>
                 <div id="ssl-results" class="console-output">
                     <p class="status-line">System Ready...</p>
                 </div>
             </div>
+
         </div>
 
-        <!-- Malicious Link Scanner Panel -->
         <div id="malicious-scanner" class="scanner-panel" style="display:none;">
             <h2>Malicious Link Scanner</h2>
             <div class="input-group">
                 <label for="malicious-target">Suspicious URL:</label>
                 <input type="text" id="malicious-target"
-                    placeholder="e.g. http://bit.ly/sus-link or http://suspicious-site.com">
-                <button onclick="startMaliciousScan()" class="btn-scan">SCAN URL</button>
+                    placeholder="e.g. http://bit.ly/sus-link or http://suspicious-site.com"
+                    onkeyup="if(event.key === 'Enter') startMaliciousScan()">
+                <button id="malicious-scan-btn" onclick="startMaliciousScan()" class="btn-scan">SCAN URL</button>
+                <button id="malicious-stop-btn" onclick="stopScan('malicious')" class="btn-stop">STOP SCAN</button>
             </div>
             <div class="results-area">
                 <h3>Scan Results</h3>
@@ -110,7 +143,9 @@
             <div class="input-group">
                 <label for="arp-target">Target IP Range (CIDR):</label>
                 <input type="text" id="arp-target" placeholder="e.g. 192.168.0.1/24">
-                <button onclick="startARPScan()" class="btn-scan">SCAN PROBE</button>
+                <button id="arp-scan-btn" onclick="startARPScan()" class="btn-scan">SCAN PROBE</button>
+                <button id="arp-stop-btn" onclick="stopScan('arp')" class="btn-stop" style="display:none;">STOP
+                    SCAN</button>
             </div>
             <div class="results-area">
                 <h3>Discovered Devices</h3>
@@ -119,36 +154,82 @@
                 </div>
             </div>
         </div>
+
+        <!-- React2Shell Scanner Panel -->
+        <div id="react2shell-scanner" class="scanner-panel" style="display:none;">
+            <h2>React2Shell (Node.js/React RCE) Scanner</h2>
+            <div class="input-group">
+                <label for="react2shell-target">Target IP / CIDR:</label>
+                <input type="text" id="react2shell-target" placeholder="e.g. 192.168.1.10 or 192.168.1.0/24"
+                    onkeyup="if(event.key === 'Enter') startReact2ShellScan()">
+                <button id="react2shell-scan-btn" onclick="startReact2ShellScan()" class="btn-scan">SCAN TARGET</button>
+                <button id="react2shell-stop-btn" onclick="stopScan('react2shell')" class="btn-stop">STOP SCAN</button>
+            </div>
+            <div class="results-area">
+                <h3>Scan Results (Multi-threaded)</h3>
+                <div id="react2shell-progress-container" class="progress-container">
+                    <div id="react2shell-progress-bar" class="progress-bar"></div>
+                    <div id="react2shell-progress-text" class="progress-text">0%</div>
+                </div>
+                <div id="react2shell-results" class="console-output">
+                    <p class="status-line">System Ready...</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
+        const controllers = {
+            weblogic: null,
+            port: null,
+            ssl: null,
+            malicious: null,
+            arp: null,
+            react2shell: null
+        };
+
+        function toggleScanButtons(type, isScanning) {
+            const scanBtn = document.getElementById(`${type}-scan-btn`);
+            const stopBtn = document.getElementById(`${type}-stop-btn`);
+            if (scanBtn && stopBtn) {
+                scanBtn.style.display = isScanning ? 'none' : 'block';
+                stopBtn.style.display = isScanning ? 'block' : 'none';
+            }
+        }
+
+        function stopScan(type) {
+            if (controllers[type]) {
+                controllers[type].abort();
+                controllers[type] = null;
+                const resultsDiv = document.getElementById(`${type}-results`);
+                if (resultsDiv) {
+                    resultsDiv.innerHTML += '<p class="error">[!] Scan Stopped by User</p>';
+                    resultsDiv.scrollTop = resultsDiv.scrollHeight;
+                }
+                toggleScanButtons(type, false);
+            }
+        }
+
         function showScanner(type) {
             // Hide all panels
             document.querySelectorAll('.scanner-panel').forEach(el => el.style.display = 'none');
             document.querySelectorAll('.menu-btn').forEach(el => el.classList.remove('active'));
 
             // Show selected
-            if (type === 'weblogic') {
-                document.getElementById('weblogic-scanner').style.display = 'block';
-                document.querySelectorAll('.menu-btn')[0].classList.add('active'); // Assumption: First button is WebLogic
-            } else if (type === 'port') {
-                document.getElementById('port-scanner').style.display = 'block';
-                document.querySelectorAll('.menu-btn')[1].classList.add('active'); // Assumption: Second is Port
-            } else if (type === 'ssl') {
-                document.getElementById('ssl-scanner').style.display = 'block';
-                document.querySelectorAll('.menu-btn')[2].classList.add('active'); // Corrected index for SSL button
-            } else if (type === 'malicious') {
-                document.getElementById('malicious-scanner').style.display = 'block';
-                document.querySelectorAll('.menu-btn')[3].classList.add('active');
-            } else if (type === 'arp') {
-                document.getElementById('arp-scanner').style.display = 'block';
-                document.querySelectorAll('.menu-btn')[4].classList.add('active');
+            const panels = ['weblogic', 'port', 'ssl', 'malicious', 'arp', 'react2shell'];
+            const index = panels.indexOf(type);
+            if (index !== -1) {
+                document.getElementById(`${type}-scanner`).style.display = 'block';
+                document.querySelectorAll('.menu-btn')[index].classList.add('active');
             }
         }
 
         async function startWebLogicScan() {
             const target = document.getElementById('weblogic-target').value;
             const resultsDiv = document.getElementById('weblogic-results');
+            const progressContainer = document.getElementById('weblogic-progress-container');
+            const progressBar = document.getElementById('weblogic-progress-bar');
+            const progressText = document.getElementById('weblogic-progress-text');
 
             if (!target) {
                 alert("Please enter a target IP or CIDR range.");
@@ -156,51 +237,82 @@
             }
 
             resultsDiv.innerHTML = '<p class="status-line blinking">Scanning target(s)...</p>';
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '0%';
+            progressText.innerText = '0%';
+
+            controllers.weblogic = new AbortController();
+            toggleScanButtons('weblogic', true);
 
             try {
                 const response = await fetch('/api/scan/weblogic', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ target: target })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target: target }),
+                    signal: controllers.weblogic.signal
                 });
 
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
                 }
 
-                const data = await response.json();
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                resultsDiv.innerHTML = '';
 
-                resultsDiv.innerHTML = ''; // Clear loading message
+                let partialData = '';
 
-                if (data.error) {
-                    resultsDiv.innerHTML += `<p class="error">ERROR: ${data.error}</p>`;
-                } else if (data.results && data.results.length > 0) {
-                    data.results.forEach(res => {
-                        const statusClass = res.vulnerable ? 'vuln' : 'safe';
-                        const statusText = res.vulnerable ? '[!] VULNERABLE' : '[*] SAFE';
-                        resultsDiv.innerHTML += `
-                            <div class="result-line ${statusClass}">
-                                <span class="target">${res.target}</span>
-                                <span class="status">${statusText}</span>
-                                <span class="detail">(${res.reason})</span>
-                            </div>
-                        `;
-                    });
-                } else {
-                    resultsDiv.innerHTML = '<p>No results found.</p>';
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    partialData += chunk;
+
+                    const lines = partialData.split('\n\n');
+                    partialData = lines.pop();
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = JSON.parse(line.substring(6));
+                            const res = data.result;
+                            const progress = data.progress;
+
+                            progressBar.style.width = `${progress}%`;
+                            progressText.innerText = `${progress}% (${data.current}/${data.total})`;
+
+                            const statusClass = res.vulnerable ? 'vuln' : 'safe';
+                            const statusText = res.vulnerable ? '[!] VULNERABLE' : '[*] SAFE';
+                            resultsDiv.innerHTML += `
+                                <div class="result-line ${statusClass}">
+                                    <span class="target">${res.target}</span>
+                                    <span class="status">${statusText}</span>
+                                    <span class="detail">(${res.reason})</span>
+                                </div>
+                            `;
+                            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+                        }
+                    }
                 }
 
             } catch (error) {
+                if (error.name === 'AbortError') return;
                 resultsDiv.innerHTML = `<p class="error">System Error: ${error.message}</p>`;
+            } finally {
+                controllers.weblogic = null;
+                toggleScanButtons('weblogic', false);
             }
         }
+
 
         async function startPortScan() {
             const target = document.getElementById('port-target').value;
             const ports = document.getElementById('port-range').value;
             const resultsDiv = document.getElementById('port-results');
+            const progressContainer = document.getElementById('port-progress-container');
+            const progressBar = document.getElementById('port-progress-bar');
+            const progressText = document.getElementById('port-progress-text');
 
             if (!target) {
                 alert("Please enter a target IP or CIDR.");
@@ -208,36 +320,90 @@
             }
 
             resultsDiv.innerHTML = '<p class="status-line blinking">Scanning ports... (This may take a moment)</p>';
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '0%';
+            progressText.innerText = '0%';
+
+            controllers.port = new AbortController();
+            toggleScanButtons('port', true);
 
             try {
                 const response = await fetch('/api/scan/ports', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ target: target, ports: ports })
+                    body: JSON.stringify({ target: target, ports: ports }),
+                    signal: controllers.port.signal
                 });
 
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                const data = await response.json();
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                }
 
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
                 resultsDiv.innerHTML = '';
 
-                if (data.error) {
-                    resultsDiv.innerHTML += `<p class="error">ERROR: ${data.error}</p>`;
-                } else if (data.results && data.results.length > 0) {
-                    data.results.forEach(res => {
-                        resultsDiv.innerHTML += `
-                            <div class="result-line safe">
-                                <span class="target">${res.ip}:${res.port}</span>
-                                <span class="status">OPEN</span>
-                                <span class="detail">(${res.service})</span>
-                            </div>
-                        `;
-                    });
-                } else {
-                    resultsDiv.innerHTML = '<p>No open ports found in range.</p>';
+                let partialData = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    partialData += chunk;
+
+                    const lines = partialData.split('\n\n');
+                    partialData = lines.pop();
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = JSON.parse(line.substring(6));
+                            const res = data.result;
+                            const progress = data.progress;
+
+                            progressBar.style.width = `${progress}%`;
+                            progressText.innerText = `${progress}%`;
+
+                            if (res) {
+                                resultsDiv.innerHTML += `
+                                    <div class="result-line safe">
+                                        <span class="target">${res.ip}:${res.port}</span>
+                                        <span class="status">OPEN</span>
+                                        <span class="detail">(${res.service})</span>
+                                    </div>
+                                `;
+                                resultsDiv.scrollTop = resultsDiv.scrollHeight;
+                            }
+
+                            if (data.info) {
+                                resultsDiv.innerHTML += `
+                                    <p class="status-line" style="color: var(--secondary-text); font-style: italic;">
+                                        ${data.info}
+                                    </p>
+                                `;
+                                resultsDiv.scrollTop = resultsDiv.scrollHeight;
+                            }
+
+                            if (data.ip_done) {
+                                const statusText = data.has_open_ports ? 'Done!' : 'N/A';
+                                resultsDiv.innerHTML += `
+                                    <div class="result-line">
+                                        <span class="target">${data.ip_done}</span>
+                                        <span class="status">${statusText}</span>
+                                    </div>
+                                `;
+                                resultsDiv.scrollTop = resultsDiv.scrollHeight;
+                            }
+                        }
+                    }
                 }
             } catch (error) {
+                if (error.name === 'AbortError') return;
                 resultsDiv.innerHTML = `<p class="error">System Error: ${error.message}</p>`;
+            } finally {
+                controllers.port = null;
+                toggleScanButtons('port', false);
             }
         }
 
@@ -245,6 +411,9 @@
             const target = document.getElementById('ssl-target').value;
             const port = document.getElementById('ssl-port').value;
             const resultsDiv = document.getElementById('ssl-results');
+            const progressContainer = document.getElementById('ssl-progress-container');
+            const progressBar = document.getElementById('ssl-progress-bar');
+            const progressText = document.getElementById('ssl-progress-text');
 
             if (!target) {
                 alert("Please enter a target host.");
@@ -252,76 +421,107 @@
             }
 
             resultsDiv.innerHTML = '<p class="status-line blinking">Analyzing SSL/TLS Configuration...</p>';
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '0%';
+            progressText.innerText = '0%';
+
+            controllers.ssl = new AbortController();
+            toggleScanButtons('ssl', true);
 
             try {
                 const response = await fetch('/api/scan/ssl', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ target: target, port: port })
+                    body: JSON.stringify({ target: target, port: port }),
+                    signal: controllers.ssl.signal
                 });
 
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                const data = await response.json();
-                const res = data.results;
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                }
 
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
                 resultsDiv.innerHTML = '';
 
-                if (data.error) {
-                    resultsDiv.innerHTML += `<p class="error">ERROR: ${data.error}</p>`;
-                } else if (res) {
-                    // Certificate Info
-                    if (res.certificate) {
-                        const cert = res.certificate;
-                        const subject = cert.subject ? Object.values(cert.subject).join(' ') : 'N/A';
-                        resultsDiv.innerHTML += `
-                            <div class="result-line safe">
-                                <span class="status">Certificate</span>
-                                <span class="detail">Matches ${subject}</span>
-                            </div>
-                            <div class="result-line">
-                                <span class="detail">Expires: ${cert.valid_until} (${cert.days_remaining} days left)</span>
-                            </div>
-                        `;
-                    }
+                let partialData = '';
 
-                    // Vulnerabilities
-                    if (res.vulnerabilities && res.vulnerabilities.length > 0) {
-                        res.vulnerabilities.forEach(vuln => {
-                            resultsDiv.innerHTML += `
-                                <div class="result-line vuln">
-                                    <span class="status">[VULNERABILITY]</span>
-                                    <span class="detail">${vuln}</span>
-                                </div>
-                            `;
-                        });
-                    } else {
-                        resultsDiv.innerHTML += `
-                            <div class="result-line safe">
-                                <span class="status">[SECURE]</span>
-                                <span class="detail">No obvious vulnerabilities found.</span>
-                            </div>
-                        `;
-                    }
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
 
-                    // Protocols
-                    if (res.protocols) {
-                        let protocols = Object.entries(res.protocols)
-                            .filter(([_, supported]) => supported)
-                            .map(([proto, _]) => proto)
-                            .join(', ');
-                        resultsDiv.innerHTML += `
-                            <div class="result-line">
-                                <span class="status">Protocols</span>
-                                <span class="detail">${protocols}</span>
-                            </div>
-                        `;
-                    }
+                    const chunk = decoder.decode(value, { stream: true });
+                    partialData += chunk;
 
-                } else {
-                    resultsDiv.innerHTML = '<p>No results returned.</p>';
+                    const lines = partialData.split('\n\n');
+                    partialData = lines.pop();
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = JSON.parse(line.substring(6));
+                            const step = data.step;
+                            const res = data.result;
+                            const progress = data.progress;
+
+                            progressBar.style.width = `${progress}%`;
+                            progressText.innerText = `${progress}%`;
+
+                            if (step === 'certificate') {
+                                if (res.error) {
+                                    resultsDiv.innerHTML += `<p class="error">Certificate Error: ${res.error}</p>`;
+                                } else {
+                                    const subject = res.subject ? Object.values(res.subject).join(' ') : 'N/A';
+                                    resultsDiv.innerHTML += `
+                                        <div class="result-line safe">
+                                            <span class="status">Certificate</span>
+                                            <span class="detail">Matches ${subject}</span>
+                                        </div>
+                                        <div class="result-line">
+                                            <span class="detail">Expires: ${res.valid_until} (${res.days_remaining} days left)</span>
+                                        </div>
+                                    `;
+                                }
+                            } else if (step === 'protocols') {
+                                let protocols = Object.entries(res)
+                                    .filter(([_, supported]) => supported)
+                                    .map(([proto, _]) => proto)
+                                    .join(', ');
+                                resultsDiv.innerHTML += `
+                                    <div class="result-line">
+                                        <span class="status">Protocols</span>
+                                        <span class="detail">${protocols}</span>
+                                    </div>
+                                `;
+                            } else if (step === 'vulnerabilities') {
+                                if (res && res.length > 0) {
+                                    res.forEach(vuln => {
+                                        resultsDiv.innerHTML += `
+                                            <div class="result-line vuln">
+                                                <span class="status">[VULNERABILITY]</span>
+                                                <span class="detail">${vuln}</span>
+                                            </div>
+                                        `;
+                                    });
+                                } else {
+                                    resultsDiv.innerHTML += `
+                                        <div class="result-line safe">
+                                            <span class="status">[SECURE]</span>
+                                            <span class="detail">No obvious vulnerabilities found.</span>
+                                        </div>
+                                    `;
+                                }
+                            }
+                            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+                        }
+                    }
                 }
             } catch (error) {
+                if (error.name === 'AbortError') return;
                 resultsDiv.innerHTML = `<p class="error">System Error: ${error.message}</p>`;
+            } finally {
+                controllers.ssl = null;
+                toggleScanButtons('ssl', false);
             }
         }
 
@@ -336,11 +536,15 @@
 
             resultsDiv.innerHTML = '<p class="status-line blinking">Analyzing URL...</p>';
 
+            controllers.malicious = new AbortController();
+            toggleScanButtons('malicious', true);
+
             try {
                 const response = await fetch('/api/scan/malicious', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url: target })
+                    body: JSON.stringify({ url: target }),
+                    signal: controllers.malicious.signal
                 });
 
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -379,9 +583,14 @@
                             <span class="detail">Analysis: ${data.reason}</span>
                         </div>
                     `;
+                    resultsDiv.scrollTop = resultsDiv.scrollHeight;
                 }
             } catch (error) {
+                if (error.name === 'AbortError') return;
                 resultsDiv.innerHTML = `<p class="error">System Error: ${error.message}</p>`;
+            } finally {
+                controllers.malicious = null;
+                toggleScanButtons('malicious', false);
             }
         }
 
@@ -396,11 +605,15 @@
 
             resultsDiv.innerHTML = '<p class="status-line blinking">Scanning Network (ARP Probing)...</p>';
 
+            controllers.arp = new AbortController();
+            toggleScanButtons('arp', true);
+
             try {
                 const response = await fetch('/api/scan/arp', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ target: target })
+                    body: JSON.stringify({ target: target }),
+                    signal: controllers.arp?.signal
                 });
 
                 const text = await response.text();
@@ -451,7 +664,92 @@
                     resultsDiv.innerHTML = '<p>No IPs parsed from range.</p>';
                 }
             } catch (error) {
+                if (error.name === 'AbortError') return;
                 resultsDiv.innerHTML = `<p class="error">System Error: ${error.message}</p>`;
+            } finally {
+                controllers.arp = null;
+                toggleScanButtons('arp', false);
+            }
+        }
+
+        async function startReact2ShellScan() {
+            const target = document.getElementById('react2shell-target').value;
+            const resultsDiv = document.getElementById('react2shell-results');
+            const progressContainer = document.getElementById('react2shell-progress-container');
+            const progressBar = document.getElementById('react2shell-progress-bar');
+            const progressText = document.getElementById('react2shell-progress-text');
+
+            if (!target) {
+                alert("Please enter a target IP or CIDR range.");
+                return;
+            }
+
+            resultsDiv.innerHTML = '<p class="status-line blinking">Starting multi-threaded scan...</p>';
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '0%';
+            progressText.innerText = '0%';
+
+            controllers.react2shell = new AbortController();
+            toggleScanButtons('react2shell', true);
+
+            try {
+                const response = await fetch('/api/scan/react2shell', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target: target }),
+                    signal: controllers.react2shell.signal
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                resultsDiv.innerHTML = '';
+
+                let partialData = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    partialData += chunk;
+
+                    const lines = partialData.split('\n\n');
+                    partialData = lines.pop();
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = JSON.parse(line.substring(6));
+                            const res = data.result;
+                            const progress = data.progress;
+
+                            progressBar.style.width = `${progress}%`;
+                            progressText.innerText = `${progress}% (${data.current}/${data.total})`;
+
+                            const statusClass = res.vulnerable ? 'vuln' : 'safe';
+                            const statusText = res.vulnerable ? '[!] VULNERABLE' : '[*] SAFE';
+                            resultsDiv.innerHTML += `
+                                <div class="result-line ${statusClass}">
+                                    <span class="target">${res.target}</span>
+                                    <span class="status">${statusText}</span>
+                                    <span class="detail">(${res.reason})</span>
+                                </div>
+                            `;
+                            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+                        }
+                    }
+                }
+
+            } catch (error) {
+                if (error.name === 'AbortError') return;
+                resultsDiv.innerHTML = `<p class="error">System Error: ${error.message}</p>`;
+            } finally {
+                controllers.react2shell = null;
+                toggleScanButtons('react2shell', false);
             }
         }
     </script>

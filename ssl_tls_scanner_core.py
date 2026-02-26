@@ -253,14 +253,28 @@ class SSLTLSScanner:
         """
         전체 SSL/TLS 스캔 실행
         """
+        return dict(self.run_scan_generator())
+
+    def run_scan_generator(self):
+        """
+        전체 SSL/TLS 스캔 실행 제너레이터
+        """
         self.results['certificate'] = self.get_certificate_info()
+        yield ('certificate', self.results['certificate'])
+        
         self.results['protocols'] = self.check_protocol_support()
+        yield ('protocols', self.results['protocols'])
         
         cipher_suites = self.get_cipher_suites()
         self.results['cipher_suites'] = cipher_suites
         self.results['weak_ciphers'] = self.check_weak_ciphers(cipher_suites)
+        yield ('ciphers', {'suites': cipher_suites, 'weak': self.results['weak_ciphers']})
         
         self.results['security_features'] = self.check_security_headers()
+        yield ('security_features', self.results['security_features'])
+        
         self.results['vulnerabilities'] = self.analyze_vulnerabilities()
+        yield ('vulnerabilities', self.results['vulnerabilities'])
         
         return self.results
+
